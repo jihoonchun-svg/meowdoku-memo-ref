@@ -182,8 +182,11 @@ function render(){
   const lv=document.getElementById('lives');
   lv.innerHTML=[0,1,2].map(i=>`<span class="${i<lives?'':'gone'}">🐟</span>`).join('');
   renderTools();
-  if(!won && count===N){ // 정답 고양이만 놓을 수 있으므로 N개=클리어
-    won=true; setTimeout(showWin,250);
+  // 승리: 확정 ∪ 메모 고양이가 완전한 정답(유일해)을 이루면 클리어 (메모로 완성해도 승리)
+  if(!won){
+    const placed=[];
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++){ if(conf[r][c]==='C'||memo[r][c]==='C') placed.push(r+','+c); }
+    if(placed.length===N && placed.every(k=>solSet.has(k))){ won=true; setTimeout(showWin,250); }
   }
 }
 

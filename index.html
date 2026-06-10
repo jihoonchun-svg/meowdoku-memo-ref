@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>MeowDoku — 메모 모드 레퍼런스</title>
+<style>
+  :root{
+    --bg:#faf4ec; --panel:#fff; --ink:#5b4636; --sub:#9a8c7d;
+    --cat:#2c2c2c; --x:#6b5d4f; --lockx:#e1607a; --memo:#7aa7ff;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    display:flex; flex-direction:column; align-items:center; padding:16px; gap:14px;}
+  h1{font-size:18px; margin:4px 0 0;}
+  .hud{display:flex; align-items:center; gap:14px; font-weight:700;}
+  .lives{letter-spacing:2px;}
+  .lives .gone{filter:grayscale(1); opacity:.3;}
+  .rules{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; max-width:360px;}
+  .chip{background:#fff; border:1px solid #eadfce; color:#8a7b69; font-size:11px;
+    padding:5px 8px; border-radius:10px;}
+
+  .boardWrap{position:relative; padding:10px; border-radius:18px; background:#fff;
+    box-shadow:0 6px 24px rgba(120,90,60,.12); transition:.18s;}
+  .boardWrap.memo{background:#eef3ff; box-shadow:0 0 0 3px #7aa7ff inset, 0 6px 24px rgba(80,110,200,.18);}
+  .memoBadge{position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    background:#7aa7ff; color:#fff; font-size:12px; font-weight:700; padding:3px 12px;
+    border-radius:999px; display:none; white-space:nowrap;}
+  .boardWrap.memo .memoBadge{display:block;}
+
+  #board{display:grid; gap:4px;}
+  .cell{width:46px; height:46px; border-radius:9px; position:relative; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:24px; user-select:none;
+    transition:transform .08s;}
+  .cell:active{transform:scale(.92);}
+  .cell.shake{animation:shake .35s;}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+
+  /* marks */
+  .mark{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;}
+  .x{color:var(--x); font-weight:800; font-size:26px;}
+  .x.lock{color:var(--lockx);}
+  .x.auto{color:var(--x); opacity:.85;}
+  .cat{font-size:26px;}
+  /* memo overlays */
+  .memocat{font-size:26px; opacity:.5; outline:2px dashed #7aa7ff; outline-offset:-3px; border-radius:8px;}
+  .memox{color:#9aa0a8; opacity:.7; font-weight:800; font-size:24px;}
+
+  .tools{display:flex; gap:12px;}
+  .tool{background:#fff; border:1px solid #eadfce; border-radius:16px; padding:10px 16px;
+    font-size:14px; font-weight:700; color:#7a6a58; cursor:pointer; display:flex; align-items:center; gap:6px;
+    box-shadow:0 3px 8px rgba(120,90,60,.08);}
+  .tool:active{transform:scale(.96);}
+  .tool.primary{background:#f5a623; color:#fff; border-color:#f5a623;}
+  .tool.memo.on{background:#7aa7ff; color:#fff; border-color:#7aa7ff;}
+  .tool.danger{color:#e1607a;}
+
+  .legend{background:#fff; border-radius:14px; padding:12px 14px; max-width:380px; width:100%;
+    font-size:12.5px; line-height:1.7; color:#6b5d4f; box-shadow:0 3px 10px rgba(120,90,60,.08);}
+  .legend b{color:var(--ink);}
+  .legend .row{display:flex; align-items:center; gap:8px; margin:2px 0;}
+  .sw{width:30px; height:30px; border-radius:7px; background:#cfe3c7; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  .hint{color:#9a8c7d; font-size:11.5px;}
+
+  .toast{position:fixed; top:14px; left:50%; transform:translateX(-50%);
+    background:#5b4636; color:#fff; padding:8px 16px; border-radius:999px; font-size:13px;
+    opacity:0; transition:.25s; pointer-events:none; z-index:9;}
+  .toast.show{opacity:1;}
+
+  .overlay{position:fixed; inset:0; background:rgba(20,12,6,.78); display:none; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px; z-index:20; color:#fff; text-align:center;}
+  .overlay.show{display:flex;}
+  .overlay .big{font-size:34px; font-weight:800;}
+  .overlay .reveal{font-size:90px; filter:drop-shadow(0 0 24px rgba(255,210,90,.8));}
+  .overlay button{background:#f5a623; color:#fff; border:none; padding:12px 26px; border-radius:16px; font-size:16px; font-weight:700; cursor:pointer;}
+  .mrec{width:300px; height:120px; background:#cfc4b4; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#7a6a58; font-size:13px;}
+</style>
+</head>
+<body>
+  <h1>🐱 MeowDoku — 메모 모드 레퍼런스</h1>
+  <div class="hud">
+    <span id="count">🐱 0/6</span>
+    <span class="lives" id="lives">🐟🐟🐟</span>
+  </div>
+  <div class="rules">
+    <span class="chip">색마다 고양이 한 마리</span>
+    <span class="chip">행·열마다 한 마리</span>
+    <span class="chip">8방향 인접 금지</span>
+  </div>
+
+  <div class="boardWrap" id="boardWrap">
+    <div class="memoBadge">📝 노트 모드 (실제 보드에 영향 없음)</div>
+    <div id="board"></div>
+  </div>
+
+  <div class="tools" id="tools"></div>
+
+  <div class="legend">
+    <div style="margin-bottom:6px;"><b>조작</b></div>
+    <div>· <b>클릭</b> = X 토글 (여기 아님) / <b>고양이 칸 클릭 = 제거</b></div>
+    <div>· <b>더블클릭</b> = 고양이 배치</div>
+    <div>· (실기기) 스와이프 = 여러 칸 X 일괄 — 본 프로토타입은 클릭/더블클릭만</div>
+    <div style="margin:8px 0 4px;"><b>시각 위계</b> (겹쳐도 안 헷갈리게)</div>
+    <div class="row"><span class="sw"><span class="cat">🐱</span></span> 확정 고양이 — 불투명·선명</div>
+    <div class="row"><span class="sw"><span class="x">✕</span></span> 확정 X / <span class="x lock" style="font-weight:800">✕</span> 오답 잠금 X(빨강, 변경불가)</div>
+    <div class="row"><span class="sw"><span class="memocat">🐱</span></span> 메모 고양이 — 반투명 + 점선</div>
+    <div class="row"><span class="sw"><span class="memox">✕</span></span> 메모 X — 회색·반투명 (가설 크로스아웃)</div>
+    <div class="hint" style="margin-top:8px;">
+      메모 모드 ON → 보드가 파란 테두리로 바뀜. 고양이를 놓으면 <b>정답 여부와 무관하게</b> 행·열·8방향에 메모 X가 무조건 퍼짐(가설). 하단 도구는 <b>[모두지우기]</b> 하나 — 메모 레이어만 싹 비우고 확정 보드는 보존.
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="overlay" id="overlay"></div>
+
+<script>
+const N=6;
+// 정답: 행마다 고양이 열 위치 (인접 금지·라틴 만족)
+const SOL=[0,2,4,1,3,5];
+const solSet=new Set(SOL.map((c,r)=>r+','+c));
+// 색 영역: 각 셀을 가장 가까운 정답셀로 (Voronoi) → 영역마다 정답 1개
+const COLORS=['#e9b6c4','#c6e0a8','#f5d99b','#bcd6f0','#d8c4ec','#f0c0a8'];
+const region=[];
+for(let r=0;r<N;r++){region[r]=[];for(let c=0;c<N;c++){
+  let best=0,bd=1e9;
+  for(let k=0;k<N;k++){const d=Math.abs(r-k)+Math.abs(c-SOL[k]); if(d<bd){bd=d;best=k;}}
+  region[r][c]=best;
+}}
+
+// 상태
+let conf=[], memo=[]; // conf: 'E','X','L','C'  memo: 'E','X','C'
+for(let r=0;r<N;r++){conf[r]=[];memo[r]=[];for(let c=0;c<N;c++){conf[r][c]='E';memo[r][c]='E';}}
+let memoOn=false, lives=3, won=false;
+
+const board=document.getElementById('board');
+board.style.gridTemplateColumns=`repeat(${N},46px)`;
+const cells=[];
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+  const el=document.createElement('div'); el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+  bindCell(el,r,c); board.appendChild(el); cells.push(el);
+}
+
+function neighbors(r,c){ // 행·열·8방향
+  const s=new Set();
+  for(let i=0;i<N;i++){s.add(r+','+i); s.add(i+','+c);}
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    const nr=r+dr,nc=c+dc; if(nr>=0&&nr<N&&nc>=0&&nc<N) s.add(nr+','+nc);
+  }
+  s.delete(r+','+c); return s;
+}
+function autoX(catsLayer, immuneCats){ // 크로스아웃 재계산
+  const blocked=new Set();
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(catsLayer[r][c]==='C'){ for(const k of neighbors(r,c)) blocked.add(k); }
+  }
+  // 고양이 칸은 면역
+  for(const key of [...blocked]){ const [r,c]=key.split(',').map(Number);
+    if(immuneCats(r,c)) blocked.delete(key); }
+  return blocked;
+}
+
+function render(){
+  const wrap=document.getElementById('boardWrap');
+  wrap.classList.toggle('memo',memoOn);
+  const confAuto=autoX(conf,(r,c)=>conf[r][c]==='C');
+  const memoAuto=memoOn? autoX(memo,(r,c)=>memo[r][c]==='C'||conf[r][c]==='C') : new Set();
+  let count=0;
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(conf[r][c]==='C')count++;
+    const el=cells[r*N+c]; const key=r+','+c;
+    el.style.background=COLORS[region[r][c]];
+    let inner='';
+    if(conf[r][c]==='C'){ inner=`<span class="cat">🐱</span>`; }
+    else if(memoOn && memo[r][c]==='C'){ inner=`<span class="memocat">🐱</span>`; }
+    else if(conf[r][c]==='L'){ inner=`<span class="mark x lock">✕</span>`; }
+    else if(conf[r][c]==='X' || confAuto.has(key)){ inner=`<span class="mark x ${conf[r][c]==='X'?'':'auto'}">✕</span>`; }
+    else if(memoOn && (memo[r][c]==='X' || memoAuto.has(key))){ inner=`<span class="mark memox">✕</span>`; }
+    el.innerHTML=inner;
+  }
+  document.getElementById('count').textContent=`🐱 ${count}/${N}`;
+  const lv=document.getElementById('lives');
+  lv.innerHTML=[0,1,2].map(i=>`<span class="${i<lives?'':'gone'}">🐟</span>`).join('');
+  renderTools();
+  if(!won && count===N){ // 정답 고양이만 놓을 수 있으므로 N개=클리어
+    won=true; setTimeout(showWin,250);
+  }
+}
+
+function renderTools(){
+  const t=document.getElementById('tools');
+  if(memoOn){
+    t.innerHTML=`
+      <div class="tool memo on" id="memoBtn">📝 메모 ON</div>
+      <div class="tool danger" id="clearAll">🧹 모두지우기</div>`;
+    document.getElementById('clearAll').onclick=()=>{ for(let r=0;r<N;r++)for(let c=0;c<N;c++)memo[r][c]='E'; toast('메모 전체 삭제'); render(); };
+  }else{
+    t.innerHTML=`
+      <div class="tool" id="memoBtn">📝 메모</div>
+      <div class="tool" id="autofill">🐱 자동배치</div>
+      <div class="tool" id="hintBtn">💡 힌트</div>`;
+    document.getElementById('autofill').onclick=autofill;
+    document.getElementById('hintBtn').onclick=hint;
+  }
+  document.getElementById('memoBtn').onclick=()=>{ memoOn=!memoOn; toast(memoOn?'메모 모드 ON — 가설을 펼쳐보세요':'메모 모드 OFF'); render(); };
+}
+
+// 클릭=X토글 / 더블클릭=고양이 (더블클릭 시 첫 클릭 취소)
+function bindCell(el,r,c){
+  let timer=null;
+  el.addEventListener('click',()=>{ if(timer){clearTimeout(timer);timer=null;return;}
+    timer=setTimeout(()=>{ timer=null; singleTap(r,c); },220); });
+  el.addEventListener('dblclick',()=>{ if(timer){clearTimeout(timer);timer=null;} doubleTap(r,c); });
+}
+function singleTap(r,c){ // 고양이 칸=제거 / 그 외=X 토글
+  if(won) return;
+  if(memoOn){
+    if(memo[r][c]==='C'){ memo[r][c]='E'; render(); return; } // 메모 고양이 단일 탭 = 제거
+    memo[r][c] = (memo[r][c]==='X')?'E':'X';
+  }else{
+    if(conf[r][c]==='L') return;       // 잠금 X는 변경 불가
+    if(conf[r][c]==='C'){ conf[r][c]='E'; render(); return; } // 고양이 단일 탭 = 제거
+    conf[r][c] = (conf[r][c]==='X')?'E':'X';
+  }
+  render();
+}
+function doubleTap(r,c){ // 고양이
+  if(won) return;
+  if(memoOn){
+    memo[r][c] = (memo[r][c]==='C')?'E':'C'; // 무조건 (가설)
+    render(); return;
+  }
+  // 노멀: 정답이면 배치, 오답이면 목숨-1 + 잠금X
+  if(conf[r][c]==='C'){ conf[r][c]='E'; render(); return; }
+  if(conf[r][c]==='L') return;
+  if(solSet.has(r+','+c)){ conf[r][c]='C'; render(); }
+  else{ lives--; conf[r][c]='L'; shake(r,c); toast('오답! 목숨 -1'); render(); if(lives<=0) setTimeout(showLose,350); }
+}
+function shake(r,c){ const el=cells[r*N+c]; el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),350); }
+
+function autofill(){ // 데모: 남은 정답 1칸 자동 배치
+  if(won) return;
+  for(let r=0;r<N;r++){ const c=SOL[r]; if(conf[r][c]!=='C'){ conf[r][c]='C'; toast('자동배치: 고양이 1마리'); render(); return; } }
+}
+function hint(){ // 데모: 정답 빈칸 하나 깜빡
+  for(let r=0;r<N;r++){ const c=SOL[r]; if(conf[r][c]!=='C'){ const el=cells[r*N+c];
+    el.style.boxShadow='0 0 0 3px #f5a623 inset'; setTimeout(()=>el.style.boxShadow='',900); toast('힌트: 여기를 봐요'); return; } }
+}
+
+let toastTimer;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1200); }
+
+function showWin(){
+  const o=document.getElementById('overlay');
+  o.innerHTML=`<div class="reveal">🐱🎺</div><div class="big">놀라워요!</div>
+    <div>You beat 87% of players!</div>
+    <div class="mrec">[ MREC 광고 — 승리 결과 화면 ]</div>
+    <button onclick="resetGame()">다음 레벨 ▶</button>`;
+  o.classList.add('show');
+}
+function showLose(){
+  const o=document.getElementById('overlay');
+  o.innerHTML=`<div class="reveal">😿</div><div class="big">목숨 소진</div>
+    <div>플레이어의 58.8%가 부활로 통과했어요!</div>
+    <div class="mrec">[ MREC 광고 — 패배 결과 화면 ]</div>
+    <button onclick="resetGame()">🔄 다시 시작</button>`;
+  o.classList.add('show');
+}
+function resetGame(){
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){conf[r][c]='E';memo[r][c]='E';}
+  lives=3; won=false; memoOn=false;
+  document.getElementById('overlay').classList.remove('show'); render();
+}
+render();
+</script>
+</body>
+</html>

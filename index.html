@@ -215,6 +215,7 @@ function bindCell(el,r,c){
 function singleTap(r,c){ // 고양이 칸=제거 / 그 외=X 토글
   if(won) return;
   if(memoOn){
+    if(conf[r][c]!=='E') return; // 기존 판(확정 고양이/X)은 간섭 불가
     if(memo[r][c]==='C'){ memo[r][c]='E'; render(); return; } // 메모 고양이 단일 탭 = 제거
     memo[r][c] = (memo[r][c]==='X')?'E':'X';
   }else{
@@ -227,6 +228,7 @@ function singleTap(r,c){ // 고양이 칸=제거 / 그 외=X 토글
 function doubleTap(r,c){ // 고양이
   if(won) return;
   if(memoOn){
+    if(conf[r][c]!=='E') return; // 기존 판(확정 고양이/X)은 간섭 불가
     memo[r][c] = (memo[r][c]==='C')?'E':'C'; // 무조건 (가설)
     render(); return;
   }

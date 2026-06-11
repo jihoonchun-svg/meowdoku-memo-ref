@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Modoku — 힌트 전략 S1~S7 (단계 애니)</title>
+<style>
+  :root{--bg:#faf4ec;--ink:#5b4636;--sub:#9a8c7d;--mole:#6b4f3a;--memo:#5570b8;--xred:#e1607a;--ok:#5bbf6a;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;padding:18px;}
+  h1{font-size:20px;margin:0 0 4px;}
+  .sub{color:var(--sub);font-size:13px;margin-bottom:14px;}
+  .legend{background:#fff;border-radius:12px;padding:10px 14px;font-size:12px;display:flex;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(120,90,60,.08);margin-bottom:18px;}
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .chip{width:20px;height:20px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;background:#efe7da;font-weight:800;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
+  .card{background:#fff;border-radius:16px;padding:14px 16px 16px;box-shadow:0 4px 14px rgba(120,90,60,.10);display:flex;flex-direction:column;}
+  .card h2{font-size:15px;margin:0 0 2px;display:flex;align-items:center;gap:8px;}
+  .badge{background:#f5a623;color:#fff;font-size:12px;font-weight:800;border-radius:8px;padding:2px 8px;}
+  .badge.adv{background:#a06bd6;}
+  .ko{color:var(--sub);font-size:11.5px;font-weight:400;}
+  .board{display:grid;gap:3px;margin:10px auto;width:max-content;}
+  .cell{width:38px;height:38px;border-radius:7px;background:#f1e9dc;position:relative;display:flex;align-items:center;justify-content:center;transition:box-shadow .25s, background .25s;}
+  .cell.r-a{background:#f0b6c4;} .cell.r-b{background:#bcd6f0;} .cell.r-g{background:#bfe0a3;}
+  .mole{width:24px;height:24px;border-radius:50%;background:var(--mole);position:relative;}
+  .mole::after{content:"";position:absolute;left:50%;top:60%;transform:translateX(-50%);width:7px;height:5px;border-radius:50%;background:#e88;}
+  .mole::before{content:"";position:absolute;left:28%;top:32%;width:4px;height:4px;border-radius:50%;background:#fff;box-shadow:9px 0 0 #fff;}
+  .mole.hypo{background:var(--memo);opacity:.65;outline:2px dashed var(--memo);outline-offset:2px;}
+  .cell.deduce{box-shadow:0 0 0 3px var(--ok) inset,0 0 12px rgba(91,191,106,.7);}
+  .cell.deduce .tag{position:absolute;top:-8px;right:-5px;background:var(--ok);color:#fff;font-size:10px;border-radius:6px;padding:0 4px;}
+  .cell.focus{box-shadow:0 0 0 3px #f5a623 inset;}
+  .x{font-weight:800;font-size:21px;color:var(--xred);}
+  .x.soft{color:var(--memo);opacity:.8;}
+  .boom{font-size:21px;}
+  .cap{font-size:12.5px;line-height:1.55;color:#5b4636;min-height:54px;background:#faf4ec;border-radius:8px;padding:8px 10px;margin-top:4px;}
+  .ctrl{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  .ctrl button{border:none;background:#efe7da;color:#5b4636;border-radius:9px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;}
+  .ctrl button.play{background:#f5a623;color:#fff;}
+  .ctrl button:active{transform:scale(.95);}
+  .ctrl .idx{font-size:12px;color:var(--sub);margin-left:auto;}
+  .note{font-size:11.5px;color:var(--sub);margin-top:8px;}
+  .pill{font-size:10.5px;background:#eee;border-radius:6px;padding:1px 6px;color:#888;}
+</style>
+</head>
+<body>
+  <h1>🦔 Modoku — 힌트 전략 7단계 (S1~S7) · 단계 애니</h1>
+  <div class="sub">쉬운 전략(S1)부터 적용해 *가장 단순한 다음 한 수*를 제시. ▶ 재생 / 다음으로 단계 진행.</div>
+
+  <div class="legend">
+    <span><span class="chip"><span class="mole" style="width:14px;height:14px"></span></span>두더지</span>
+    <span><span class="chip" style="box-shadow:0 0 0 2px var(--ok) inset">✓</span>확정</span>
+    <span><span class="chip"><span class="x">✕</span></span>제외</span>
+    <span><span class="chip"><span class="x soft">✕</span></span>제외제안</span>
+    <span><span class="chip" style="box-shadow:0 0 0 2px #f5a623 inset"></span>후보(주목)</span>
+    <span><span class="chip"><span class="mole hypo" style="width:13px;height:13px"></span></span>가정</span>
+    <span><span class="chip">💥</span>모순</span>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+<script>
+// 토큰: . 빈 / M 두더지 / m 가정 / D 확정 / F 후보 / X 제외 / x 제외제안 / C 모순
+const SC = [
+{badge:"S1",name:"기본 제거",ko:"R1",regions:["....."],
+ frames:[
+  {g:[".....",".....","..M..",".....","....."],cap:"(2,2)에 두더지를 놓으면…"},
+  {g:["..X..",".XXX.","XXMXX",".XXX.","..X.."],cap:"같은 행·열·8방향이 전부 제외(X)된다."},
+ ]},
+{badge:"S1m",name:"기본 마크",ko:"R1_mark",regions:["....."],
+ frames:[
+  {g:[".....",".....","..M..",".....","....."],cap:"(2,2) 두더지 기준으로…"},
+  {g:["..x..",".xxx.","xxMxx",".xxx.","..x.."],cap:"그 불가 칸들을 X로 표시하자고 제안(파란 ✕)."},
+ ]},
+{badge:"S2",name:"리전 유일 후보",ko:"R2",regions:["aa...","aa...","a....",".....","....."],
+ frames:[
+  {g:["XX...","XX...",".....",".....","....."],cap:"빨강 영역 5칸 중 4칸이 이미 막혔다. (남은 빨강 칸 = (2,0))"},
+  {g:["XX...","XX...","D....",".....","....."],cap:"남은 빈 칸 (2,0) 하나 → 두더지 확정!"},
+ ]},
+{badge:"S3",name:"행/열 유일 후보",ko:"R3",regions:["....."],
+ frames:[
+  {g:[".....",".....",".....","XX.XX","....."],cap:"3행에서 X를 빼고 가능한 칸을 보면…"},
+  {g:[".....",".....",".....","XXDXX","....."],cap:"(3,2) 하나만 남음 → 확정!"},
+ ]},
+{badge:"S4",name:"세트 잠금",ko:"R4",regions:["aa...","a....",".....",".....","....."],
+ frames:[
+  {g:["FF...","X....",".....",".....","....."],cap:"빨강 영역의 빈 칸(노란 테두리)이 전부 0행에 몰려 있다 → 빨강 두더지는 0행."},
+  {g:["FFXXX","X....",".....",".....","....."],cap:"0행의 한 마리는 빨강이 차지 → 0행의 '다른 영역' 칸은 제외(X)."},
+ ]},
+{badge:"S4c",name:"연쇄 잠금 (도미노)",ko:"R4_chain",adv:true,
+ regions:["aab..","a.b..",".....",".....","....."],
+ frames:[
+  {g:["FF...","X....",".....",".....","....."],cap:"① 빨강 빈 칸이 전부 0행 → 빨강은 0행을 차지. (초록=(0,2)·(1,2))"},
+  {g:["FFXXX","X....",".....",".....","....."],cap:"② 0행의 다른 칸 제외 → 초록의 (0,2)도 막힌다. (도미노 1)"},
+  {g:["FFXXX","X.D..",".....",".....","....."],cap:"③ 그래서 초록 영역 빈 칸이 (1,2) 하나 → 확정! (도미노 2)"},
+ ]},
+{badge:"S5c",name:"깊은 연쇄 (가정→모순)",ko:"R5_chain",adv:true,
+ regions:[".....",".....",".....","...gg","....."],
+ frames:[
+  {g:[".....",".....",".....",".....","....."],cap:"초록 영역은 (3,3)·(3,4) 두 칸뿐. (2,3)이 두더지일까?"},
+  {g:[".....",".....","...m.",".....","....."],cap:"① 가정: (2,3)에 두더지라고 쳐보자."},
+  {g:[".....","..xxx","..xmx","..xxx","....."],cap:"② 그러면 8방향이 막혀 (3,3)·(3,4)가 둘 다 제외된다."},
+  {g:[".....","..xxx","..xmx","..xCC","....."],cap:"③ 초록 영역에 둘 곳이 없다 → 모순! 💥"},
+  {g:[".....",".....","...X.",".....","....."],cap:"④ 따라서 (2,3)은 두더지 불가 → X. (가정이 틀렸다)"},
+ ]},
+];
+
+function reg(scn, r, c){
+  const R = scn.regions;
+  if(R.length===1) return '.';            // no regions
+  const row = R[r] || ".....";
+  return row[c] || '.';
+}
+function buildBoard(scn, frame){
+  const rows = frame.g;
+  const N = 5;
+  const board = document.createElement('div');
+  board.className='board';
+  board.style.gridTemplateColumns = `repeat(${N},38px)`;
+  for(let r=0;r<N;r++){
+    const line = (rows[r]||".....").padEnd(N,'.');
+    for(let c=0;c<N;c++){
+      const ch = line[c];
+      const rg = reg(scn,r,c);
+      let cls='cell'+(rg!=='.'?' r-'+rg:'');
+      let inner='';
+      if(ch==='M') inner='<span class="mole"></span>';
+      else if(ch==='m') inner='<span class="mole hypo"></span>';
+      else if(ch==='X') inner='<span class="x">✕</span>';
+      else if(ch==='x') inner='<span class="x soft">✕</span>';
+      else if(ch==='C') inner='<span class="boom">💥</span>';
+      else if(ch==='D'){cls+=' deduce';inner='<span class="mole"></span><span class="tag">✓</span>';}
+      else if(ch==='F') cls+=' focus';
+      const d=document.createElement('div'); d.className=cls; d.innerHTML=inner;
+      board.appendChild(d);
+    }
+  }
+  return board;
+}
+
+const root=document.getElementById('cards');
+SC.forEach(scn=>{
+  const card=document.createElement('div'); card.className='card';
+  const h=document.createElement('h2');
+  h.innerHTML=`<span class="badge${scn.adv?' adv':''}">${scn.badge}</span> ${scn.name} <span class="ko">${scn.ko}</span>`;
+  card.appendChild(h);
+  const boardWrap=document.createElement('div'); card.appendChild(boardWrap);
+  const cap=document.createElement('div'); cap.className='cap'; card.appendChild(cap);
+  const ctrl=document.createElement('div'); ctrl.className='ctrl';
+  const bPrev=document.createElement('button'); bPrev.textContent='◀';
+  const bNext=document.createElement('button'); bNext.textContent='다음 ▶';
+  const bPlay=document.createElement('button'); bPlay.className='play'; bPlay.textContent='↻ 재생';
+  const idx=document.createElement('span'); idx.className='idx';
+  ctrl.append(bPrev,bNext,bPlay,idx); card.appendChild(ctrl);
+  if(scn.adv){const n=document.createElement('div');n.className='note';n.innerHTML='<span class="pill">고급</span> 두 단계 추론. 단계 재생으로 확인.';card.appendChild(n);}
+
+  let i=0, timer=null;
+  function show(){
+    boardWrap.innerHTML='';
+    boardWrap.appendChild(buildBoard(scn, scn.frames[i]));
+    cap.textContent=scn.frames[i].cap;
+    idx.textContent=`${i+1} / ${scn.frames.length}`;
+  }
+  bPrev.onclick=()=>{stop();i=(i-1+scn.frames.length)%scn.frames.length;show();};
+  bNext.onclick=()=>{stop();i=(i+1)%scn.frames.length;show();};
+  function stop(){if(timer){clearInterval(timer);timer=null;bPlay.textContent='↻ 재생';}}
+  bPlay.onclick=()=>{
+    if(timer){stop();return;}
+    i=0;show();bPlay.textContent='⏸ 정지';
+    timer=setInterval(()=>{
+      if(i>=scn.frames.length-1){stop();return;}
+      i++;show();
+    },1100);
+  };
+  show();
+  root.appendChild(card);
+});
+</script>
+</body>
+</html>
